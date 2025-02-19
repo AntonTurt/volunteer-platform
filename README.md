@@ -57,4 +57,4 @@ src/
 
 ## Environment Setup
 
-Make sure you have Node.js version 16 or higher installed.
+Make sure you have Node.js version 16 or higher installed
