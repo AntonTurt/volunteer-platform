@@ -1,6 +1,6 @@
 # Volunteer Management Platform
 
-A web-based platform for managing volunteers, tracking hours, and collecting feedback.
+A web-based platform for Abalze Bristol, to help them with managing volunteers, tracking hours, and collecting feedback.
 
 ## Setup Instructions
 
