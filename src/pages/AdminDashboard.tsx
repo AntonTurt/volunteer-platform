@@ -64,7 +64,11 @@ export const AdminDashboard = () => {
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <Navigation />
-            <span className="text-xl font-bold text-primary-600">Logo</span>
+            <img 
+              src="/images/ablaze-logo.png" 
+              alt="Ablaze" 
+              className="h-10 object-contain" 
+            />
           </div>
           <div className="flex items-center space-x-4 text-gray-600">
             <HelpCircle className="w-6 h-6" />

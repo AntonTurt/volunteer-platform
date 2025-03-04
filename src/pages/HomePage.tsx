@@ -1,18 +1,39 @@
+// src/pages/HomePage.tsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
-import { HelpCircle, User, Clock, CheckCircle, ArrowRight } from 'lucide-react'; // Added ArrowRight
+import { NotificationCenter } from '../components/NotificationCenter';
+import { MessageCenter } from '../components/MessageCenter';
+import { HelpCircle, User, Clock, CheckCircle, ArrowRight } from 'lucide-react';
 
 export const HomePage = () => {
+  const navigate = useNavigate();
+  const [checkInStatus, setCheckInStatus] = useState('Not Checked In');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Mock data for the demo
   const mockData = {
-    name: "Samuel Robberts",
-    volunteerId: "20168129",
-    email: "Example@gmail.com",
-    organization: "Company Name",
+    name: "Admin User",
+    volunteerId: "ADMIN123",
+    email: "admin@example.com",
+    organization: "Volunteer Hub Admin",
     hoursLogged: "32 Hours",
-    checkInStatus: "Not Checked In",
     upcomingSession: {
       date: "31/01/25",
       time: "11:00 - 13:00"
     }
+  };
+
+  const handleCheckInOut = () => {
+    setIsLoading(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      setCheckInStatus(prevStatus => 
+        prevStatus === 'Not Checked In' ? 'Checked In' : 'Not Checked In'
+      );
+      setIsLoading(false);
+    }, 1000);
   };
 
   return (
@@ -22,10 +43,15 @@ export const HomePage = () => {
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <Navigation />
-            <span className="text-xl font-bold text-primary-600">Logo</span>
+            <img 
+              src="/images/ablaze-logo.png" 
+              alt="Ablaze" 
+              className="h-10 object-contain" 
+            />
           </div>
           
           <div className="flex items-center space-x-4 text-gray-600">
+            <NotificationCenter />
             <HelpCircle className="w-6 h-6" />
             <span>Homepage</span>
           </div>
@@ -77,10 +103,12 @@ export const HomePage = () => {
             </div>
             <div className="bg-primary-50 p-6 rounded-2xl shadow-soft">
               <div className="flex items-center space-x-4">
-                <CheckCircle className="w-8 h-8 text-red-500" />
+                <CheckCircle className={`w-8 h-8 ${checkInStatus === 'Checked In' ? 'text-green-500' : 'text-red-500'}`} />
                 <div>
                   <span className="text-gray-600">Check-in Status</span>
-                  <div className="font-bold text-2xl text-red-500">{mockData.checkInStatus}</div>
+                  <div className={`font-bold text-2xl ${checkInStatus === 'Checked In' ? 'text-green-500' : 'text-red-500'}`}>
+                    {checkInStatus}
+                  </div>
                 </div>
               </div>
             </div>
@@ -96,8 +124,19 @@ export const HomePage = () => {
               <span className="font-medium text-gray-800">{mockData.upcomingSession.date}</span>
               <span className="font-medium text-gray-800">{mockData.upcomingSession.time}</span>
             </div>
-            <button className="w-full bg-primary-600 text-white py-3 rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center space-x-2">
-              <span>Check-In</span>
+            <button 
+              className={`w-full ${
+                checkInStatus === 'Checked In' ? 'bg-red-500 hover:bg-red-600' : 'bg-primary-600 hover:bg-primary-700'
+              } text-white py-3 rounded-lg transition-colors flex items-center justify-center space-x-2`}
+              onClick={handleCheckInOut}
+              disabled={isLoading}
+            >
+              <span>{isLoading 
+                ? 'Processing...' 
+                : checkInStatus === 'Checked In' 
+                  ? 'Check-Out' 
+                  : 'Check-In'
+              }</span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
@@ -111,6 +150,8 @@ export const HomePage = () => {
           </div>
         </div>
       </main>
+      
+      <MessageCenter />
     </div>
   );
 };
