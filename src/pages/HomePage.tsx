@@ -1,5 +1,5 @@
-// src/pages/HomePage.tsx
-import { useState } from 'react';
+// src/pages/HomePage.tsx (partial update)
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { NotificationCenter } from '../components/NotificationCenter';
@@ -10,13 +10,29 @@ export const HomePage = () => {
   const navigate = useNavigate();
   const [checkInStatus, setCheckInStatus] = useState('Not Checked In');
   const [isLoading, setIsLoading] = useState(false);
+  const [userName, setUserName] = useState('Volunteer');
+  const [userRole, setUserRole] = useState('volunteer');
   
-  // Mock data for the demo
+  useEffect(() => {
+    // Get user information from session storage
+    const userString = sessionStorage.getItem('user');
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        setUserName(user.displayName || 'Volunteer');
+        setUserRole(user.role || 'volunteer');
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+  }, []);
+  
+  // Mock data for the demo - now using the name from session if available
   const mockData = {
-    name: "Admin User",
-    volunteerId: "ADMIN123",
-    email: "admin@example.com",
-    organization: "Volunteer Hub Admin",
+    name: userName,
+    volunteerId: userRole === 'admin' ? "ADMIN123" : "VOL456",
+    email: userRole === 'admin' ? "admin@example.com" : "volunteer@example.com",
+    organization: userRole === 'admin' ? "Volunteer Hub Admin" : "Company A",
     hoursLogged: "32 Hours",
     upcomingSession: {
       date: "31/01/25",
@@ -29,9 +45,20 @@ export const HomePage = () => {
     
     // Simulate API call
     setTimeout(() => {
-      setCheckInStatus(prevStatus => 
-        prevStatus === 'Not Checked In' ? 'Checked In' : 'Not Checked In'
-      );
+      // If checking out, redirect to feedback page
+      if (checkInStatus === 'Checked In') {
+        setCheckInStatus('Not Checked In');
+        navigate('/feedback', { 
+          state: { 
+            fromCheckout: true,
+            sessionDate: new Date().toLocaleDateString(),
+            sessionHours: 2.5, // Example hours for the session
+          } 
+        });
+      } else {
+        // Just checking in
+        setCheckInStatus('Checked In');
+      }
       setIsLoading(false);
     }, 1000);
   };
@@ -111,6 +138,35 @@ export const HomePage = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Session History */}
+          <div className="bg-white rounded-2xl shadow-soft p-6 mt-6">
+            <h2 className="text-lg font-semibold mb-4">Session History</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-primary-50">
+                    <th className="p-3 text-left">Date</th>
+                    <th className="p-3 text-left">Hours</th>
+                    <th className="p-3 text-left">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Sample entries - would be dynamic in real implementation */}
+                  <tr className="border-t">
+                    <td className="p-3">Jan 25, 2025</td>
+                    <td className="p-3">2.5</td>
+                    <td className="p-3">Career mentoring session</td>
+                  </tr>
+                  <tr className="border-t">
+                    <td className="p-3">Jan 18, 2025</td>
+                    <td className="p-3">3.0</td>
+                    <td className="p-3">Skills workshop</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 

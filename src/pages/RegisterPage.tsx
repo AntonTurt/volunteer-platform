@@ -1,13 +1,15 @@
 // src/pages/RegisterPage.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-import { register } from '../utils/auth';
+import { User, Lock, Building, ArrowRight, AlertCircle } from 'lucide-react';
+import { organizations } from '../data/organizations';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [organization, setOrganization] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -18,17 +20,28 @@ export const RegisterPage = () => {
 
     try {
       if (!email || !password) {
-        throw new Error('Please enter both email and password');
+        throw new Error('Please enter all required fields');
       }
 
-      await register(email, password);
-      navigate('/home');
+      // In a real implementation, this would call a registration API
+      // For now, simulate a successful registration
+      setTimeout(() => {
+        // Create a mock user object
+        const userData = {
+          uid: Math.random().toString(36).substring(2, 10),
+          email,
+          displayName: name || email.split('@')[0],
+          role: 'volunteer',
+          organization
+        };
+        
+        // Store in session storage for demo
+        sessionStorage.setItem('user', JSON.stringify(userData));
+        
+        navigate('/home');
+      }, 1000);
     } catch (err: any) {
-      setError(
-        err.code === 'auth/email-already-in-use'
-          ? 'Email already registered'
-          : err.message
-      );
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -37,10 +50,30 @@ export const RegisterPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-soft w-full max-w-md p-8">
-        <h1 className="text-2xl font-bold text-center text-gray-800 mb-8">Create Account</h1>
+        <div className="w-32 h-32 mx-auto mb-6">
+          <img 
+            src="/images/ablaze-logo.png" 
+            alt="Ablaze - Sparking Potential" 
+            className="w-full h-full object-contain"
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">Create Your Account</h1>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-4">
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                disabled={isLoading}
+              />
+            </div>
+
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -50,6 +83,7 @@ export const RegisterPage = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 disabled={isLoading}
+                required
               />
             </div>
 
@@ -62,7 +96,26 @@ export const RegisterPage = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 disabled={isLoading}
+                required
               />
+            </div>
+
+            <div className="relative">
+              <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <select
+                value={organization}
+                onChange={(e) => setOrganization(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none"
+                disabled={isLoading}
+                required
+              >
+                <option value="">Select your organization</option>
+                {organizations.map(org => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -7,6 +7,8 @@ import { FeedbackPage } from './pages/FeedbackPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { UnauthorizedPage } from './pages/UnauthorizedPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { OrganizationAnalyticsPage } from './pages/OrganizationAnalyticsPage';
+import { ReportsPage } from './pages/ReportsPage';
 
 function App() {
   return (
@@ -26,7 +28,10 @@ function App() {
         {/* Admin-only routes */}
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/organization/:orgId" element={<OrganizationAnalyticsPage />} />
         </Route>
+
         
         {/* Default route */}
         <Route path="/" element={<Navigate to="/login" replace />} />
