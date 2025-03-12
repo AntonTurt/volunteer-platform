@@ -1,5 +1,5 @@
-// src/pages/HomePage.tsx (partial update)
-import { useState, useEffect } from 'react';
+// src/pages/HomePage.tsx
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navigation } from '../components/Navigation';
 import { NotificationCenter } from '../components/NotificationCenter';
@@ -12,6 +12,10 @@ export const HomePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [userName, setUserName] = useState('Volunteer');
   const [userRole, setUserRole] = useState('volunteer');
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number | null>(null);
+  const checkoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
   
   useEffect(() => {
     // Get user information from session storage
@@ -25,7 +29,102 @@ export const HomePage = () => {
         console.error('Error parsing user data:', error);
       }
     }
+    
+    // Check if there's an active session in storage
+    const activeSessionString = sessionStorage.getItem('activeSession');
+    if (activeSessionString) {
+      try {
+        const activeSession = JSON.parse(activeSessionString);
+        if (activeSession.active) {
+          const startTime = new Date(activeSession.startTime);
+          setSessionStartTime(startTime);
+          setCheckInStatus('Checked In');
+          
+          // Calculate how much time is left in the session
+          const elapsedTime = Date.now() - startTime.getTime();
+          const timeLeft = Math.max(0, SESSION_DURATION - elapsedTime);
+          
+          if (timeLeft > 0) {
+            // Still has time left - set up the auto-checkout
+            setRemainingTime(Math.floor(timeLeft / 1000));
+            startCheckoutTimer(timeLeft);
+          } else {
+            // Session already expired - perform auto-checkout
+            handleAutoCheckout();
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing session data:', error);
+      }
+    }
+    
+    // Cleanup timer on component unmount
+    return () => {
+      if (checkoutTimerRef.current) {
+        clearTimeout(checkoutTimerRef.current);
+      }
+    };
   }, []);
+  
+  // Update the remaining time countdown every second
+  useEffect(() => {
+    let countdownInterval: NodeJS.Timeout | null = null;
+    
+    if (checkInStatus === 'Checked In' && remainingTime !== null && remainingTime > 0) {
+      countdownInterval = setInterval(() => {
+        setRemainingTime(prev => {
+          if (prev === null || prev <= 1) {
+            clearInterval(countdownInterval!);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+    };
+  }, [checkInStatus, remainingTime]);
+  
+  // Start the auto-checkout timer
+  const startCheckoutTimer = (timeLeft: number) => {
+    // Clear any existing timer
+    if (checkoutTimerRef.current) {
+      clearTimeout(checkoutTimerRef.current);
+    }
+    
+    // Set up new timer
+    checkoutTimerRef.current = setTimeout(() => {
+      handleAutoCheckout();
+    }, timeLeft);
+  };
+  
+  // Handle automatic checkout after 30 minutes
+  const handleAutoCheckout = () => {
+    console.log('Auto checkout triggered');
+    setCheckInStatus('Not Checked In');
+    setSessionStartTime(null);
+    setRemainingTime(null);
+    
+    // Update report data with the fixed 30-minute duration
+    updateReportData(0.5);
+    
+    // Clear the active session
+    sessionStorage.removeItem('activeSession');
+    
+    // Navigate to feedback
+    navigate('/feedback', { 
+      state: { 
+        fromCheckout: true,
+        sessionDate: new Date().toLocaleDateString(),
+        sessionHours: 0.5, // Fixed 30-minute duration
+        isAutoCheckout: true
+      } 
+    });
+  };
   
   // Mock data for the demo - now using the name from session if available
   const mockData = {
@@ -45,22 +144,130 @@ export const HomePage = () => {
     
     // Simulate API call
     setTimeout(() => {
-      // If checking out, redirect to feedback page
       if (checkInStatus === 'Checked In') {
+        // Manual checkout - always use a fixed 30 minute duration
+        const sessionDuration = 0.5; // 30 minutes in hours
+        
+        // Clear any existing timer
+        if (checkoutTimerRef.current) {
+          clearTimeout(checkoutTimerRef.current);
+          checkoutTimerRef.current = null;
+        }
+        
+        // Clear the active session
+        sessionStorage.removeItem('activeSession');
+        
+        // Update UI
         setCheckInStatus('Not Checked In');
+        setSessionStartTime(null);
+        setRemainingTime(null);
+        
+        // Update report data with the fixed 30-minute duration
+        updateReportData(sessionDuration);
+        
+        // Navigate to feedback with fixed duration
         navigate('/feedback', { 
           state: { 
             fromCheckout: true,
             sessionDate: new Date().toLocaleDateString(),
-            sessionHours: 2.5, // Example hours for the session
+            sessionHours: sessionDuration, // Fixed 30 minute duration
+            isAutoCheckout: false
           } 
         });
       } else {
-        // Just checking in
+        // Checking in - record start time
+        const now = new Date();
+        setSessionStartTime(now);
+        setRemainingTime(SESSION_DURATION / 1000); // Set countdown in seconds
+        
+        // Start the auto-checkout timer
+        startCheckoutTimer(SESSION_DURATION);
+        
+        // Store the session info
+        const sessionInfo = {
+          active: true,
+          startTime: now.toISOString(),
+        };
+        sessionStorage.setItem('activeSession', JSON.stringify(sessionInfo));
+        
+        // Update UI
         setCheckInStatus('Checked In');
       }
       setIsLoading(false);
     }, 1000);
+  };
+
+  // Format the remaining time for display
+  const formatRemainingTime = () => {
+    if (remainingTime === null) return "";
+    
+    const minutes = Math.floor(remainingTime / 60);
+    const seconds = remainingTime % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+  
+  // Update report data
+  const updateReportData = (duration: number) => {
+    try {
+      // Get existing report data or initialize if not present
+      const storedReportData = sessionStorage.getItem('reportData');
+      let reportData = storedReportData ? JSON.parse(storedReportData) : {
+        dailyActivity: [],
+        volunteerHours: []
+      };
+      
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+      
+      // 1. Update daily activity report
+      const existingDayIndex = reportData.dailyActivity.findIndex(day => day.date === today);
+      if (existingDayIndex >= 0) {
+        // Update existing day
+        reportData.dailyActivity[existingDayIndex].volunteers += 1;
+        reportData.dailyActivity[existingDayIndex].hours += duration;
+      } else {
+        // Add new day
+        reportData.dailyActivity.push({
+          date: today,
+          volunteers: 1,
+          hours: duration
+        });
+      }
+      
+      // Sort by date (newest first)
+      reportData.dailyActivity.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      // 2. Update volunteer hours report
+      const existingVolunteerIndex = reportData.volunteerHours.findIndex(v => 
+        v.id === user.uid || v.email === user.email
+      );
+      
+      if (existingVolunteerIndex >= 0) {
+        // Update existing volunteer
+        reportData.volunteerHours[existingVolunteerIndex].hours += duration;
+        reportData.volunteerHours[existingVolunteerIndex].sessions += 1;
+      } else {
+        // Add new volunteer
+        reportData.volunteerHours.push({
+          id: user.uid || Math.random().toString(36).substring(2, 10),
+          name: user.displayName || 'Volunteer',
+          email: user.email || 'unknown@example.com',
+          organization: user.organization || 'Unknown Organization',
+          hours: duration,
+          sessions: 1
+        });
+      }
+      
+      // Store updated report data
+      sessionStorage.setItem('reportData', JSON.stringify(reportData));
+      
+      // Dispatch an event to notify the Reports page if it's open
+      const reportUpdateEvent = new CustomEvent('reportDataUpdated');
+      window.dispatchEvent(reportUpdateEvent);
+      
+    } catch (error) {
+      console.error('Error updating report data:', error);
+    }
   };
 
   return (
@@ -136,6 +343,11 @@ export const HomePage = () => {
                   <div className={`font-bold text-2xl ${checkInStatus === 'Checked In' ? 'text-green-500' : 'text-red-500'}`}>
                     {checkInStatus}
                   </div>
+                  {checkInStatus === 'Checked In' && remainingTime !== null && (
+                    <div className="text-sm text-gray-600 mt-1">
+                      Auto-checkout in: <span className="font-medium">{formatRemainingTime()}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -157,12 +369,12 @@ export const HomePage = () => {
                   {/* Sample entries - would be dynamic in real implementation */}
                   <tr className="border-t">
                     <td className="p-3">Jan 25, 2025</td>
-                    <td className="p-3">2.5</td>
+                    <td className="p-3">0.5</td>
                     <td className="p-3">Career mentoring session</td>
                   </tr>
                   <tr className="border-t">
                     <td className="p-3">Jan 18, 2025</td>
-                    <td className="p-3">3.0</td>
+                    <td className="p-3">0.5</td>
                     <td className="p-3">Skills workshop</td>
                   </tr>
                 </tbody>
