@@ -210,10 +210,12 @@ export const HomePage = () => {
   const updateReportData = (duration: number) => {
     try {
       // Get existing report data or initialize if not present
-      const storedReportData = sessionStorage.getItem('reportData');
+      const storedReportData = localStorage.getItem('reportData');
       let reportData = storedReportData ? JSON.parse(storedReportData) : {
         dailyActivity: [],
-        volunteerHours: []
+        volunteerHours: [],
+        sessions: [],
+        feedback: []
       };
       
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -258,8 +260,26 @@ export const HomePage = () => {
         });
       }
       
+      // 3. Add detailed session information
+      const sessionId = Math.random().toString(36).substring(2, 10);
+      reportData.sessions.push({
+        id: sessionId,
+        volunteerId: user.uid,
+        volunteerName: user.displayName || 'Volunteer',
+        volunteerEmail: user.email,
+        organization: user.organization,
+        date: today,
+        time: new Date().toLocaleTimeString(),
+        duration: duration,
+        checkInTime: sessionStartTime ? sessionStartTime.toISOString() : new Date().toISOString(),
+        checkOutTime: new Date().toISOString()
+      });
+      
       // Store updated report data
-      sessionStorage.setItem('reportData', JSON.stringify(reportData));
+      localStorage.setItem('reportData', JSON.stringify(reportData));
+      
+      // Store the session ID in session storage for feedback linkage
+      sessionStorage.setItem('lastSessionId', sessionId);
       
       // Dispatch an event to notify the Reports page if it's open
       const reportUpdateEvent = new CustomEvent('reportDataUpdated');

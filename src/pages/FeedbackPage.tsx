@@ -7,6 +7,7 @@ interface LocationState {
   fromCheckout?: boolean;
   sessionDate?: string;
   sessionHours?: number;
+  isAutoCheckout?: boolean;
 }
 
 export const FeedbackPage = () => {
@@ -18,6 +19,7 @@ export const FeedbackPage = () => {
   const [sessionDate, setSessionDate] = useState('');
   const [sessionHours, setSessionHours] = useState(0);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Check if coming from check-out flow
@@ -31,10 +33,80 @@ export const FeedbackPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    // Simulate saving the feedback
+    // Save feedback to localStorage for admin reports
+    try {
+      // Get session info from navigation state
+      const sessionInfo = location.state as LocationState;
+      
+      // Get the last session ID from session storage
+      const lastSessionId = sessionStorage.getItem('lastSessionId');
+      
+      // Get the current user from session storage
+      const userString = sessionStorage.getItem('user');
+      const user = userString ? JSON.parse(userString) : {
+        uid: 'unknown',
+        displayName: 'Unknown User',
+        email: 'unknown@example.com',
+        organization: 'Unknown Organization'
+      };
+      
+      // Get existing report data or initialize if not present
+      const storedReportData = localStorage.getItem('reportData');
+      let reportData = storedReportData ? JSON.parse(storedReportData) : {
+        dailyActivity: [],
+        volunteerHours: [],
+        sessions: [],
+        feedback: []
+      };
+      
+      // Add feedback to session data
+      if (lastSessionId && reportData.sessions) {
+        const sessionIndex = reportData.sessions.findIndex(s => s.id === lastSessionId);
+        if (sessionIndex >= 0) {
+          reportData.sessions[sessionIndex].feedback = {
+            rating,
+            comment,
+            timestamp: new Date().toISOString()
+          };
+        }
+      }
+      
+      // Add feedback to dedicated feedback collection
+      if (!reportData.feedback) {
+        reportData.feedback = [];
+      }
+      
+      reportData.feedback.push({
+        id: Math.random().toString(36).substring(2, 10),
+        sessionId: lastSessionId || 'unknown',
+        volunteerId: user.uid,
+        volunteerName: user.displayName || 'Volunteer',
+        volunteerEmail: user.email,
+        organization: user.organization,
+        rating,
+        comment,
+        date: new Date().toISOString(),
+        sessionDate: sessionDate,
+        sessionHours: sessionHours,
+        isAutoCheckout: sessionInfo?.isAutoCheckout || false
+      });
+      
+      // Store updated report data
+      localStorage.setItem('reportData', JSON.stringify(reportData));
+      
+      // Dispatch event to notify admin dashboard of updates
+      const reportUpdateEvent = new CustomEvent('reportDataUpdated');
+      window.dispatchEvent(reportUpdateEvent);
+    } catch (error) {
+      console.error('Error saving feedback:', error);
+    }
+    
+    // Simulate processing time
     setTimeout(() => {
       setSubmitSuccess(true);
+      setIsSubmitting(false);
       
       // If coming from checkout, return to home after successful submission
       if (isFromCheckout) {
@@ -154,9 +226,10 @@ export const FeedbackPage = () => {
               <div className="flex justify-center">
                 <button
                   type="submit"
-                  className="bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Submit Feedback
+                  {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
                 </button>
               </div>
 
@@ -167,6 +240,7 @@ export const FeedbackPage = () => {
                     type="button"
                     onClick={() => navigate('/home')}
                     className="flex items-center text-gray-600 hover:text-gray-800"
+                    disabled={isSubmitting}
                   >
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Skip and return to home

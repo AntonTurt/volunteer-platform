@@ -1,29 +1,76 @@
 // src/pages/RegisterPage.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Lock, Building, Search, ArrowRight, AlertCircle } from 'lucide-react';
-import { organizations } from '../data/organizations';
+import { User, Lock, Building, KeySquare, AlertCircle, ArrowRight } from 'lucide-react';
+
+// Company codes mapping - in production this would be in a secure database
+const COMPANY_CODES: Record<string, string> = {
+  "ABLAZE2025": "Ablaze Bristol",
+  "ACME1234": "ACME Corporation",
+  "GLOBE567": "Global Solutions Ltd",
+  "TECH789": "Tech Innovations Inc",
+  "METRO012": "Metro Partners"
+};
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [organization, setOrganization] = useState('');
-  const [organizationSearch, setOrganizationSearch] = useState('');
+  const [companyCode, setCompanyCode] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showOrgDropdown, setShowOrgDropdown] = useState(false);
+  const [codeVerified, setCodeVerified] = useState(false);
   
-  // Registration code with organization code instead of search
+  // Verify company code
+  const verifyCompanyCode = () => {
+    // Reset any previous results
+    setError('');
+    setCompanyName('');
+    setCodeVerified(false);
+    
+    // Check if code exists in our mapping
+    if (companyCode && COMPANY_CODES[companyCode]) {
+      setCompanyName(COMPANY_CODES[companyCode]);
+      setCodeVerified(true);
+    } else {
+      setError('Invalid company code. Please check with your coordinator.');
+    }
+  };
+  
+  // Handle code input change
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Convert to uppercase for consistency
+    const value = e.target.value.toUpperCase();
+    setCompanyCode(value);
+    
+    // Clear verification if code changes
+    if (codeVerified) {
+      setCodeVerified(false);
+      setCompanyName('');
+    }
+  };
+  
+  // Registration handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      if (!email || !password || !organization) {
-        throw new Error('Please enter all required fields');
+      // Validation
+      if (!email || !password || !name) {
+        throw new Error('Please fill in all required fields');
+      }
+      
+      if (password !== confirmPassword) {
+        throw new Error('Passwords do not match');
+      }
+      
+      if (!codeVerified) {
+        throw new Error('Please verify your company code first');
       }
 
       // In a real implementation, this would call a registration API
@@ -33,9 +80,10 @@ export const RegisterPage = () => {
         const userData = {
           uid: Math.random().toString(36).substring(2, 10),
           email,
-          displayName: name || email.split('@')[0],
+          displayName: name,
           role: 'volunteer',
-          organization
+          organization: companyName,
+          companyCode: companyCode  // Store for future reference
         };
         
         // Store in session storage for demo
@@ -49,13 +97,6 @@ export const RegisterPage = () => {
       setIsLoading(false);
     }
   };
-  
-  // Filter organizations based on search term or organization code
-  const filteredOrganizations = organizations.filter(org => {
-    const searchTerm = organizationSearch.toLowerCase();
-    return org.id.toLowerCase().includes(searchTerm) || 
-           org.name.toLowerCase().includes(searchTerm);
-  }).slice(0, 5); // Limit to first 5 results
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col items-center justify-center p-4">
@@ -72,6 +113,7 @@ export const RegisterPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-4">
+            {/* Full Name */}
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -84,6 +126,7 @@ export const RegisterPage = () => {
               />
             </div>
 
+            {/* Email */}
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -97,6 +140,7 @@ export const RegisterPage = () => {
               />
             </div>
 
+            {/* Password */}
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
@@ -109,65 +153,60 @@ export const RegisterPage = () => {
                 required
               />
             </div>
-
-            {/* Organization Search */}
+            
+            {/* Confirm Password */}
             <div className="relative">
-              <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                type="text"
-                placeholder="Enter company code or search"
-                value={organizationSearch}
-                onChange={(e) => {
-                  setOrganizationSearch(e.target.value);
-                  setShowOrgDropdown(true);
-                }}
-                onFocus={() => setShowOrgDropdown(true)}
+                type="password"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 disabled={isLoading}
-              />
-              
-              {/* Organization Dropdown */}
-              {showOrgDropdown && organizationSearch.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
-                  {filteredOrganizations.length > 0 ? (
-                    <ul>
-                      {filteredOrganizations.map(org => (
-                        <li 
-                          key={org.id}
-                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                          onClick={() => {
-                            setOrganization(org.id);
-                            setOrganizationSearch(org.name);
-                            setShowOrgDropdown(false);
-                          }}
-                        >
-                          {org.name}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="px-4 py-2 text-gray-500">
-                      No matching companies found
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Hidden organization field to store the selected ID */}
-              <input
-                type="hidden"
-                value={organization}
                 required
               />
             </div>
-            
-            {/* Display selected organization */}
-            {organization && (
-              <div className="bg-primary-50 py-2 px-3 rounded-lg text-sm">
-                <span className="font-medium">Selected organization: </span>
-                {organizations.find(org => org.id === organization)?.name || organization}
+
+            {/* Company Code with Verification */}
+            <div>
+              <div className="relative flex">
+                <div className="relative flex-grow">
+                  <KeySquare className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Company Code"
+                    value={companyCode}
+                    onChange={handleCodeChange}
+                    className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                    disabled={isLoading || codeVerified}
+                    required
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={verifyCompanyCode}
+                  className="px-4 py-3 bg-gray-100 text-gray-700 border border-gray-200 rounded-r-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading || !companyCode || codeVerified}
+                >
+                  Verify
+                </button>
               </div>
-            )}
+              
+              {/* Company name display when verified */}
+              {codeVerified && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-100 rounded-lg flex items-center">
+                  <Building className="text-green-500 w-4 h-4 mr-2" />
+                  <span className="text-sm text-green-700">
+                    Registered with: <span className="font-medium">{companyName}</span>
+                  </span>
+                </div>
+              )}
+              
+              <p className="mt-1 text-xs text-gray-500">
+                Enter the company code provided by your volunteer coordinator
+              </p>
+            </div>
           </div>
 
           {error && (
@@ -180,7 +219,7 @@ export const RegisterPage = () => {
           <button
             type="submit"
             className="w-full bg-primary-600 text-white py-3 rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center space-x-2 group disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isLoading || !organization}
+            disabled={isLoading || !codeVerified}
           >
             <span>{isLoading ? 'Creating Account...' : 'Register'}</span>
             {!isLoading && (
@@ -199,7 +238,7 @@ export const RegisterPage = () => {
           </div>
           
           <div className="text-center text-xs text-gray-500 mt-4">
-            <p>Please contact your organization's coordinator if you don't know your company code.</p>
+            <p>Need a company code? Please contact Gilly.Samuddin@ablazebristol.org</p>
           </div>
         </form>
       </div>

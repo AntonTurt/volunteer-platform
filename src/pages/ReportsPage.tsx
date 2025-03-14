@@ -1,8 +1,8 @@
 // src/pages/ReportsPage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from '../components/Navigation';
 import { NotificationCenter } from '../components/NotificationCenter';
-import { HelpCircle, Download, Calendar, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { HelpCircle, Download, Calendar, Filter, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 
 interface Organization {
   name: string;
@@ -31,25 +31,133 @@ export const ReportsPage = () => {
     hoursByVolunteer: true,
     checkInActivity: false
   });
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
+  const [checkInActivity, setCheckInActivity] = useState<DailyActivity[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Mock data - would come from database in real implementation
-  const organizations: Organization[] = [
-    { name: 'Company A', hours: 156, volunteers: 8 },
-    { name: 'Company B', hours: 84, volunteers: 5 },
-    { name: 'Company C', hours: 112, volunteers: 6 }
-  ];
+  // Load data from localStorage
+  useEffect(() => {
+    loadReportData();
+    
+    // Listen for report data updates
+    window.addEventListener('reportDataUpdated', loadReportData);
+    
+    return () => {
+      window.removeEventListener('reportDataUpdated', loadReportData);
+    };
+  }, []);
   
-  const volunteers: Volunteer[] = [
-    { id: '001', name: 'John Doe', organization: 'Company A', hours: 32 },
-    { id: '002', name: 'Jane Smith', organization: 'Company B', hours: 28 },
-    { id: '003', name: 'Mike Johnson', organization: 'Company A', hours: 24 }
-  ];
-  
-  const checkInActivity: DailyActivity[] = [
-    { date: '2025-01-29', volunteers: 12, hours: 36 },
-    { date: '2025-01-28', volunteers: 8, hours: 24 },
-    { date: '2025-01-27', volunteers: 10, hours: 30 }
-  ];
+  const loadReportData = () => {
+    try {
+      const storedReportData = localStorage.getItem('reportData');
+      if (storedReportData) {
+        const reportData = JSON.parse(storedReportData);
+        
+        // Process organization data
+        if (reportData.volunteerHours && reportData.volunteerHours.length > 0) {
+          // Group by organization
+          const orgMap = new Map<string, Organization>();
+          
+          for (const volunteer of reportData.volunteerHours) {
+            const orgName = volunteer.organization || 'Unknown Organization';
+            
+            if (!orgMap.has(orgName)) {
+              orgMap.set(orgName, {
+                name: orgName,
+                hours: 0,
+                volunteers: 0
+              });
+            }
+            
+            const org = orgMap.get(orgName)!;
+            org.hours += volunteer.hours || 0;
+            org.volunteers += 1;
+          }
+          
+          // Convert Map to Array
+          const orgArray = Array.from(orgMap.values());
+          setOrganizations(orgArray);
+        } else {
+          // Set default organization data if none exists
+          setOrganizations([
+            { name: 'Company A', hours: 156, volunteers: 8 },
+            { name: 'Company B', hours: 84, volunteers: 5 },
+            { name: 'Company C', hours: 112, volunteers: 6 }
+          ]);
+        }
+        
+        // Process volunteer data
+        if (reportData.volunteerHours && reportData.volunteerHours.length > 0) {
+          const volunteerData = reportData.volunteerHours.map((v: any) => ({
+            id: v.id || Math.random().toString(36).substring(2, 10),
+            name: v.name || 'Unnamed Volunteer',
+            organization: v.organization || 'Unknown Organization',
+            hours: v.hours || 0
+          }));
+          
+          setVolunteers(volunteerData);
+        } else {
+          // Set default volunteer data if none exists
+          setVolunteers([
+            { id: '001', name: 'John Doe', organization: 'Company A', hours: 32 },
+            { id: '002', name: 'Jane Smith', organization: 'Company B', hours: 28 },
+            { id: '003', name: 'Mike Johnson', organization: 'Company A', hours: 24 }
+          ]);
+        }
+        
+        // Process daily activity
+        if (reportData.dailyActivity && reportData.dailyActivity.length > 0) {
+          const activityData = reportData.dailyActivity.map((day: any) => ({
+            date: day.date || new Date().toISOString().split('T')[0],
+            volunteers: day.volunteers || 0,
+            hours: day.hours || 0
+          }));
+          
+          // Sort by date descending
+          activityData.sort((a: any, b: any) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          
+          setCheckInActivity(activityData);
+        } else {
+          // Set default activity data if none exists
+          setCheckInActivity([
+            { date: '2025-01-29', volunteers: 12, hours: 36 },
+            { date: '2025-01-28', volunteers: 8, hours: 24 },
+            { date: '2025-01-27', volunteers: 10, hours: 30 }
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+      
+      // Set default data on error
+      setOrganizations([
+        { name: 'Company A', hours: 156, volunteers: 8 },
+        { name: 'Company B', hours: 84, volunteers: 5 },
+        { name: 'Company C', hours: 112, volunteers: 6 }
+      ]);
+      
+      setVolunteers([
+        { id: '001', name: 'John Doe', organization: 'Company A', hours: 32 },
+        { id: '002', name: 'Jane Smith', organization: 'Company B', hours: 28 },
+        { id: '003', name: 'Mike Johnson', organization: 'Company A', hours: 24 }
+      ]);
+      
+      setCheckInActivity([
+        { date: '2025-01-29', volunteers: 12, hours: 36 },
+        { date: '2025-01-28', volunteers: 8, hours: 24 },
+        { date: '2025-01-27', volunteers: 10, hours: 30 }
+      ]);
+    }
+  };
+
+  const refreshData = () => {
+    setIsRefreshing(true);
+    loadReportData();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections({
@@ -110,7 +218,7 @@ export const ReportsPage = () => {
         const activityHeaders = ['date', 'volunteers', 'hours'];
         const activityData = checkInActivity.map(day => ({
           ...day,
-          date: new Date(day.date).toLocaleDateString()
+          date: day.date // Keep ISO format for easy sorting in spreadsheets
         }));
         csvData = convertToCSV(activityData, activityHeaders);
         filename = 'daily-activity.csv';
@@ -138,10 +246,12 @@ export const ReportsPage = () => {
     document.body.removeChild(link);
   };
 
+  // Apply organization filter to volunteers
   const filteredVolunteers = organization === 'all' 
     ? volunteers 
     : volunteers.filter(v => v.organization === organization);
 
+  // Calculate totals for summary section
   const totalHours = filteredVolunteers.reduce((sum, v) => sum + v.hours, 0);
   const totalVolunteers = filteredVolunteers.length;
 
@@ -160,6 +270,13 @@ export const ReportsPage = () => {
           </div>
           <div className="flex items-center space-x-4 text-gray-600">
             <NotificationCenter />
+            <button 
+              onClick={refreshData} 
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
             <HelpCircle className="w-6 h-6" />
           </div>
         </div>
@@ -202,9 +319,9 @@ export const ReportsPage = () => {
                   onChange={(e) => setOrganization(e.target.value)}
                 >
                   <option value="all">All Organizations</option>
-                  <option value="Company A">Company A</option>
-                  <option value="Company B">Company B</option>
-                  <option value="Company C">Company C</option>
+                  {organizations.map(org => (
+                    <option key={org.name} value={org.name}>{org.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -301,14 +418,22 @@ export const ReportsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredVolunteers.map((volunteer) => (
-                    <tr key={volunteer.id} className="border-t">
-                      <td className="p-3">{volunteer.id}</td>
-                      <td className="p-3 font-medium">{volunteer.name}</td>
-                      <td className="p-3">{volunteer.organization}</td>
-                      <td className="p-3">{volunteer.hours}</td>
+                  {filteredVolunteers.length > 0 ? (
+                    filteredVolunteers.map((volunteer) => (
+                      <tr key={volunteer.id} className="border-t">
+                        <td className="p-3">{volunteer.id}</td>
+                        <td className="p-3 font-medium">{volunteer.name}</td>
+                        <td className="p-3">{volunteer.organization}</td>
+                        <td className="p-3">{volunteer.hours}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="p-3 text-center text-gray-500">
+                        No volunteers found for the selected filters
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -342,13 +467,21 @@ export const ReportsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {checkInActivity.map((day, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="p-3">{new Date(day.date).toLocaleDateString()}</td>
-                      <td className="p-3">{day.volunteers}</td>
-                      <td className="p-3">{day.hours}</td>
+                  {checkInActivity.length > 0 ? (
+                    checkInActivity.map((day, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="p-3">{new Date(day.date).toLocaleDateString()}</td>
+                        <td className="p-3">{day.volunteers}</td>
+                        <td className="p-3">{day.hours}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="p-3 text-center text-gray-500">
+                        No activity data available for the selected filters
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

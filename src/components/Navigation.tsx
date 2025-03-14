@@ -1,7 +1,7 @@
 // src/components/Navigation.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, Home, MessageSquare, Settings, LogOut, BarChart2, FileText } from 'lucide-react';
+import { Menu, X, Home, MessageSquare, Settings, LogOut, BarChart2, FileText, Calendar } from 'lucide-react';
 
 export const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,7 +28,8 @@ export const Navigation = () => {
     if (userRole === 'admin') {
       items.push(
         { title: 'Admin Dashboard', path: '/admin', icon: <BarChart2 className="w-5 h-5" /> },
-        { title: 'Reports', path: '/reports', icon: <FileText className="w-5 h-5" /> }
+        { title: 'Reports', path: '/reports', icon: <FileText className="w-5 h-5" /> },
+        { title: 'Schedule Management', path: '/schedule-management', icon: <Calendar className="w-5 h-5" /> }
       );
     }
 
